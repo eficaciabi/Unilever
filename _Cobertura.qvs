@@ -10,8 +10,8 @@ Rutero_Tmp1:
 		ID_PUNTO_VENTA,
 		FECHA_DE_EJECUCION,
 		ID_PERSONAL,
-		ESTADO,
-		SEMI_CERRADO,
+		ESTADO, 
+		SEMI_CERRADO, 
 		MINUTOS
 	FROM
 	[lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\UNILEVER\Rutero_$(Anno)$(Mes).qvd]

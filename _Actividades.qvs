@@ -5,6 +5,7 @@ Desarrollador:  Natalia Castañeda Colonia
 Email:          natalia_castaneda@eficacia.com.co
 Fecha           2023/05/03 (YYYY/MM/DD)
 Estado:         Activo
+
 -----------------------------------------------------------------------------------------------------------------------------------------------*/
 ExhNegociada_Tmp1:
 	LOAD 
@@ -82,7 +83,7 @@ Left Join(Actividades_Tmp2)
 	Resident ExhNegociada_Tmp2;
 	Drop Table ExhNegociada_Tmp2;
 
-/*---------*/
+/*---------*///
 NoConcatenate
 Actividades_Tmp3:
 	LOAD

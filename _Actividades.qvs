@@ -1,0 +1,150 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Actividades
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castaneda@eficacia.com.co
+Fecha           2023/05/03 (YYYY/MM/DD)
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+ExhNegociada_Tmp1:
+	LOAD 
+		IdPersonal,
+		_Fecha,
+		Cantidad
+	FROM
+	[lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\UNILEVER/Sh_ExhNeg.qvd]
+	(qvd); 
+
+/*---------*/
+Actividades_Tmp1:
+	LOAD 
+		ID_SUCURSAL				as IdPuntoVenta,
+		ID_USUARIO				as IdPersonal,
+		FECHA_VISITA			as _Fecha,
+		ID_REGISTRO				as IDRegistro,
+		EMPRESA					as Empresa,
+		MARCA					as Marca,
+		OBSERVACIONES			as Observaciones,
+		TIPO_ACTIVIDAD			as TipoActividad,
+		SUBTIPO_ACTIVIDAD		as SubActividad,
+		NOMBRE_ARCHIVO			as Url_Captura,
+		FECHA_FIN
+	FROM 
+	[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Actividades_$(Anno)$(Mes)*.qvd]
+	(qvd); 
+
+NoConcatenate
+Actividades_Tmp1_1:
+LOAD 
+	 ID_SUCURSAL, 
+     ID_REGISTRO
+FROM
+[lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI/Colombia/UNILEVER_FS/Inactivos.xlsx]
+(ooxml, embedded labels, table is ACTIVIDADES);
+
+/*---------*/
+NoConcatenate
+ExhNegociada_Tmp2:
+	LOAD
+	  	IdPersonal,
+  		Cantidad,
+		year(Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD'))&Month(Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD'))	as Periodo
+	Resident ExhNegociada_Tmp1;
+	Drop Table ExhNegociada_Tmp1;
+
+/*---------*/
+NoConcatenate
+Actividades_Tmp2:
+	LOAD 
+		IdPuntoVenta,
+		IdPersonal,		
+		Capitalize(Marca)					                               							as Marca,
+		Capitalize(SubActividad)						                   							as SubActividad,
+		Capitalize(TipoActividad)							               							as TipoActividad,
+		Capitalize(Observaciones)																	as Observaciones,
+		If(Empresa='UNILEVER','Propia','Competencia') 		               							as Tipo_Empresa,
+		Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')										as Fecha,
+		IDRegistro,
+		DATE(_Fecha,'hh:mm:ss')																		as HoraInicio,
+  		DATE(FECHA_FIN,'hh:mm:ss')																	as HoraFin,
+		'$(RutaServerUno)'&Date(_Fecha,'YYYY')&'/'&Date(_Fecha,'MM')&'/'&'1226'&'/'&Url_Captura		as Url_Captura,
+		year(Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD'))&Month(Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD'))   as Periodo
+	Resident Actividades_Tmp1
+	Where 
+		Not WildMatch(IdPersonal, '39607','50501','84017');
+	Drop Table Actividades_Tmp1;
+
+Left Join(Actividades_Tmp2)
+	LOAD
+		IdPersonal,
+		Periodo,
+		Cantidad
+	Resident ExhNegociada_Tmp2;
+	Drop Table ExhNegociada_Tmp2;
+
+/*---------*/
+NoConcatenate
+Actividades_Tmp3:
+	LOAD
+		IdPuntoVenta,
+		IDRegistro,
+		Marca,
+		SubActividad,
+		TipoActividad,
+		IdPersonal,
+		FirstValue(Url_Captura) as Url_Captura,
+		Max(Fecha)   			as Fecha
+	Resident Actividades_Tmp2
+	Group By
+		IdPuntoVenta,
+		IDRegistro,
+		Marca,
+		SubActividad,
+		TipoActividad,
+		IdPersonal;
+	
+Left Join
+	LOAD
+		IDRegistro,
+		Cantidad,
+		IdPuntoVenta,
+		Marca,
+		SubActividad,
+		IdPersonal,
+		Fecha,
+		HoraInicio,
+		HoraFin,
+		Tipo_Empresa,
+		Observaciones,
+		TipoActividad,
+		Url_Captura
+	Resident Actividades_Tmp2;
+	DROP Table Actividades_Tmp2;
+	
+	
+/*---------*/
+NoConcatenate
+Actividades:
+	LOAD Distinct
+		IdPuntoVenta&'-'&IdPersonal&'-'&Fecha			as CK.Key1,
+		IDRegistro										as Actividades.IDRegistro,
+		Marca											as Actividades.Marca,
+		TipoActividad									as Actividades.TipoActividad,
+		SubActividad									as Actividades.SubActividad,
+		IdPuntoVenta									as Actividades.IdPuntoVenta,
+		IdPersonal										as Actividades.IdPersonal,
+		Fecha											as Actividades.Fecha,
+		Cantidad                                		as Actividades.Cantidad,
+		Observaciones									as Actividades.Observaciones,
+		Interval([HoraFin] - [HoraInicio], 'hh:mm:ss') 	as Actividades.TiempoPromedio,
+		Url_Captura										as Actividades.Url_Captura,
+		Tipo_Empresa                            		as Actividades.TipoEmpresa,
+		HoraInicio                             		 	as Actividades.HoraInicio,
+		HoraFin                              			as Actividades.HoraFin
+	Resident Actividades_Tmp3
+	Where not Exists(ID_REGISTRO,IDRegistro);
+	DROP Table Actividades_Tmp1_1;
+	DROP Table Actividades_Tmp3;
+
+STORE Actividades INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Actividades_$(Anno)$(Mes).qvd];
+Drop Table Actividades;

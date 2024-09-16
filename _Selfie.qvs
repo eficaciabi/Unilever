@@ -1,0 +1,45 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		     Transformacion Selfie
+Desarrollador:      Natalia Castañeda Colonia
+Email:              natalia_castaneda@eficacia.com.co
+Fecha               2023/05/03 (YYYY/MM/DD)
+Estado:             Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Selfie_Tmp1:
+     LOAD  
+          ID_PUNTO_DE_VENTA        as Id_PuntoVenta,   
+          ID_ASESOR				as Id_Asesor,  
+          FECHA_VISITA	          as _Fecha,					
+          FOTO                     as Url
+     FROM
+     [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Selfie_$(Anno)$(Mes)*.qvd]
+     (qvd);
+
+/*---------*/
+NoConcatenate
+Selfie_Tmp2:
+     LOAD  
+          Id_PuntoVenta,   
+          Id_Asesor,  
+          Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')	          as Fecha,				 
+          '$(RutaServerDos)'&Date(left(_Fecha,10),'YYYY')&'/'&Date(left(_Fecha,10),'MM')&'/'&'1226'&'/'&Url     as Url
+     Resident Selfie_Tmp1
+     Where
+	    Not WildMatch(Id_Asesor, '39607','50501','84017');
+     Drop Table Selfie_Tmp1;
+
+/*---------*/
+NoConcatenate
+Selfie:
+     LOAD
+          Id_PuntoVenta&'-'&Id_Asesor&'-'&Fecha	               as CK.Key1,
+          Id_PuntoVenta							          as Selfie.Id_PuntoVenta,   
+          Id_Asesor								          as Selfie.Id_Asesor,  
+          Fecha								          as Selfie.Fecha, 
+          Url										     as Selfie.Url
+     Resident Selfie_Tmp2;
+     Drop Table Selfie_Tmp2;
+
+STORE Selfie INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Selfie_$(Anno)$(Mes).qvd];
+Drop Table Selfie;

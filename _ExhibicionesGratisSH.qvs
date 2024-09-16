@@ -1,0 +1,31 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Actividades
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castaneda@eficacia.com.co
+Fecha           2023/05/03 (YYYY/MM/DD)
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+ExhNegociadaGratis_Tmp1:
+	LOAD 
+		CANTIDAD			as CantidadExh
+	FROM
+	[lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\UNILEVER/Sh_ExhNegociadaGratis.qvd]
+	(qvd); 
+
+NoConcatenate
+ExhNegociadaGratis_Tmp2:
+	LOAD
+		CantidadExh
+	Resident ExhNegociadaGratis_Tmp1;
+	DROP Table ExhNegociadaGratis_Tmp1;
+
+NoConcatenate
+ExhibicionesGratisSH:
+	Load
+		CantidadExh			as ExhibicionesGratisSH.CantidadExh
+	Resident ExhNegociadaGratis_Tmp2;
+	DROP Table ExhNegociadaGratis_Tmp2;
+
+STORE ExhibicionesGratisSH INTO  [lib://COMP_Model (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Modelo/_ExhibicionesGratisSH.csv](txt, delimiter is '|');
+Drop Table ExhibicionesGratisSH;

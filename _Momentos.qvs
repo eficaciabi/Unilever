@@ -1,0 +1,132 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion Momentos
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castanda@eficacia.com.co
+Fecha           2023/05/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Momentos_Tmp1: 
+    LOAD
+        PUNTO_VENTA_ID            as Id_Sucursal,
+        ASESOR_ID		          as Id_Usuario,
+        FECHA_INICIO          	  as _Fecha,
+        NOMBRE_SUBACTIVIDAD       as Actividad
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Momentos_$(Anno)$(Mes)*.qvd]
+    (qvd);
+
+/*------------------------------------------------------------------*/
+
+/*----------Hora Llegada------------*/
+NoConcatenate
+Momentos_Llegada_Tmp1:
+    LOAD
+        Id_Sucursal,
+        Id_Usuario,
+        Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD') 	as Fecha,
+        Date(Right(_Fecha, 8), 'hh:mm:ss') 		as Hora,
+        Actividad
+    Resident Momentos_Tmp1
+    Where 
+        WildMatch(Actividad,'INGRESO')
+    and Not WildMatch(Id_Usuario, '39607','50501','84017');
+
+/*----------*/
+NoConcatenate
+Momentos_Llegada_Tmp2:
+    LOAD
+        Actividad,
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha,
+        Date(min(Hora),'hh:mm:ss') as Hora_Llegada
+    Resident Momentos_Llegada_Tmp1
+    Group By 
+        Actividad,
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha;
+    DROP Table Momentos_Llegada_Tmp1; 
+
+/*------------Hora Salida----------------*/
+NoConcatenate
+Momentos_Salida_Tmp1:
+    LOAD
+        Id_Sucursal,
+        Id_Usuario,
+        Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD') 	as Fecha,
+        Date(Right(_Fecha, 8), 'hh:mm:ss') 		as Hora,
+        Actividad
+
+    Resident Momentos_Tmp1
+    Where 
+        WildMatch(Actividad,'SALIDA')
+    and Not WildMatch(Id_Usuario, '39607','50501','84017');
+    Drop Table Momentos_Tmp1;
+
+/*----------*/
+NoConcatenate
+Momentos_Salida_Tmp2:
+    LOAD
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha,
+        Date(max(Hora),'hh:mm:ss') as Hora_Salida
+    Resident Momentos_Salida_Tmp1
+    Group By 
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha;
+    DROP Table Momentos_Salida_Tmp1;
+
+/*---------*/
+NoConcatenate
+Momentos_Tmp2:
+    LOAD
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha,
+        Hora_Llegada
+    Resident Momentos_Llegada_Tmp2;
+    DROP Table Momentos_Llegada_Tmp2;
+
+Outer Join
+    LOAD
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha,
+        Hora_Salida
+    Resident Momentos_Salida_Tmp2;
+    DROP Table Momentos_Salida_Tmp2;
+
+/*-----------*/
+NoConcatenate
+Momentos_Tmp3:
+    LOAD Distinct
+        Id_Sucursal,
+        Id_Usuario,
+        Fecha,
+        Hora_Llegada,
+        Hora_Salida,
+        Date(Hora_Salida-Hora_Llegada,'hh:mm:ss') 			as Tiempo_Pdv,
+        If(IsNull(Hora_Llegada) or IsNull(Hora_Salida) or Date(Hora_Salida-Hora_Llegada,'hh:mm:ss') < '00:15:00','ERROR DE CAPTURA','OK') as TipoRegistro
+    Resident Momentos_Tmp2; 
+    DROP Table Momentos_Tmp2;
+
+/*---------*/
+NoConcatenate
+Momentos:
+    LOAD Distinct
+        Id_Sucursal&'-'&Id_Usuario&'-'&Fecha    as CK.Key1,
+        Id_Sucursal                             as Momentos.Id_Sucursal,
+        Id_Usuario                              as Momentos.Id_Usuario,
+        Fecha                                   as Momentos.Fecha,
+        Hora_Llegada                            as Momentos.HInicial,
+        Hora_Salida                             as Momentos.HFinal,
+        Tiempo_Pdv                              as Momentos.Tiempo,
+        TipoRegistro							as Momentos.TipoRegistro
+    Resident Momentos_Tmp3;
+    Drop Table Momentos_Tmp3;
+
+STORE Momentos INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Momentos_$(Anno)$(Mes).qvd];
+Drop Table Momentos;

@@ -1,0 +1,57 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		     Transformacion Agotados
+Desarrollador: 	María de los Ángeles Delgado
+Email:			maria_adelgado@eficacia.com.co
+Fecha			2023/07/13 (YYYY/MM/DD)
+Estado:			Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Agotados_Tmp1:
+     LOAD 
+          AGOTADO					as Agotado, 
+          PRESENTE					as Presente, 
+          NO_MANEJANTE				as NoManejante,  
+          SUB_CAUSAL_AGOTADO			as CausalAgotado, 
+          ID_PRODUCTO				as IdProducto, 
+          ID_SUCURSAL				as IdSucursal, 
+          ID_USUARIO				as IdUsuario, 
+          FECHA_CAPTURA				as _Fecha
+     FROM
+     [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER\Agotados_$(Anno)$(Mes)*.qvd]
+     (qvd);
+
+NoConcatenate
+Agotados_Tmp2:
+     LOAD Distinct
+          IdSucursal,
+          IdProducto,
+          Agotado,
+          Presente,
+          NoManejante,
+          Capitalize(CausalAgotado)			                                                  as CausalAgotado,
+          IdUsuario,
+          Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')                                     as Fecha,
+          If(Agotado=1, 'Agotado', If(Presente=1, 'Presente', If(NoManejante=1, 'NoManejante')))    as EstadoReferencia
+     Resident Agotados_Tmp1
+     Where 
+          IdUsuario<>39607;
+     DROP Table Agotados_Tmp1;
+
+NoConcatenate
+Agotados:
+     LOAD Distinct
+          IdSucursal&'-'&IdUsuario&'-'&IdProducto&'-'&Fecha      as CK.Key2,
+          IdSucursal									as Agotados.IdSucursal,
+          IdProducto									as Agotados.IdProducto,
+          Agotado										as Agotados.Agotado,
+          Presente										as Agotados.Presente,
+          NoManejante									as Agotados.NoManejante,
+          EstadoReferencia 		                              as Agotados.EstadoReferencia,
+          CausalAgotado									as Agotados.CausalAgotado,
+          IdUsuario										as Agotados.IdUsuario,
+          Fecha										as Agotados.Fecha
+     Resident Agotados_Tmp2;
+     DROP Table Agotados_Tmp2;
+
+STORE Agotados INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Agotados_$(Anno)$(Mes).qvd];
+Drop Table Agotados;

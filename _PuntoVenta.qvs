@@ -1,0 +1,49 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion PuntoVenta
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castanda@eficacia.com.co
+Fecha           2023/05/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+PuntoVenta_Tmp1:
+    LOAD
+        PUNTO_VENTA_ID			as Id_PuntoVenta,
+        OBSERVACIONES			as Observaciones,
+        NOMBRE					as Nombre_Pdv,
+        CADENA					as Cadena,
+        REGIONAL				as Regional,
+        CIUDAD					as NombreCiudad,
+        FORMATO                 as Formato
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/IPV_PuntoVenta.qvd]
+    (qvd);
+
+/**************** Transformación ****************/
+NoConcatenate
+PuntoVenta_Tmp2:
+    LOAD Distinct
+        Id_PuntoVenta,
+        Observaciones,
+        Capitalize(Nombre_Pdv)      as Nombre_Pdv,
+        Capitalize(Regional)        as Regional,
+        Capitalize(NombreCiudad)	as NombreCiudad,
+        Capitalize(Cadena)          as Cadena,
+        Capitalize(Formato)         as Formato
+    Resident PuntoVenta_Tmp1;
+    DROP Table PuntoVenta_Tmp1;
+
+/*----------*/
+NoConcatenate
+PuntoVenta:
+    LOAD
+        Id_PuntoVenta		as SK.PuntoVenta,
+        Nombre_Pdv			as PuntoVenta.Nombre_Pdv,   
+        Regional			as PuntoVenta.Regional,
+        NombreCiudad		as PuntoVenta.NombreCiudad,
+        Cadena				as PuntoVenta.Cadena,
+        Formato             as PuntoVenta.Formato
+    Resident PuntoVenta_Tmp2;
+    DROP Table PuntoVenta_Tmp2;
+
+STORE PuntoVenta INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_PuntoVenta.qvd];
+Drop Table PuntoVenta;    

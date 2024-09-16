@@ -1,0 +1,44 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Tablas de Mapeo General
+Desarrollador: 	Sergio Grisales
+Email:			sergio_grisales@Eficacia.com.co
+Fecha			2023/05/05
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Map_Actividades:
+	Mapping
+		LOAD Distinct
+			Actividades.IdPuntoVenta&Actividades.IdPersonal&Actividades.Fecha			as Llave,
+			1																			as Actividades
+		FROM 
+		[lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Actividades_*.qvd]
+		(qvd);
+
+/*---------*/	
+Map_Precios:
+	Mapping
+		LOAD Distinct
+			Precios.Id_Sucursal&Precios.Id_Usuario&Precios.Fecha					as Llave,
+			1																		as Precios
+		FROM
+		[lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Precios_*.qvd]
+		(qvd);
+
+/*---------*/	
+Map_Foto:
+	Mapping
+		LOAD
+			[ID PRODUCTO],
+			[LINK]
+		FROM
+		[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_Foto.qvd] 
+		(qvd);		
+
+Map_Clave:
+	Mapping
+		LOAD 
+			[ID LIDER], 
+            CLAVE
+		FROM
+		[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_Contraseña.qvd] 
+		(qvd);

@@ -1,0 +1,50 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion Asesor
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castanda@eficacia.com.co
+Fecha           2023/05/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Asesor_Tmp1:
+    LOAD
+        ASESOR_ID           as Id,
+        ID_JEFE,
+        NOMBRE,
+        APELLIDO,
+        ROL, 
+        ROL_JEFE, 
+        NOMBRE_JEFE
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/IPV_Asesor.qvd]
+    (qvd);
+
+/*----------*/
+NoConcatenate
+Asesor_Tmp2:
+    LOAD
+        Id,
+        ID_JEFE                             as IdJefe,
+        Capitalize(ROL_JEFE)                as RolJefe,
+        Capitalize(ROL)                     as Rol,
+        Capitalize(NOMBRE_JEFE)             as Jefe,
+        Capitalize(NOMBRE&' '&APELLIDO) 	as NombreCompleto
+    Resident Asesor_Tmp1
+    Where 
+        Not WildMatch(Id, '39607','50501','84017');
+    Drop Table Asesor_Tmp1;
+
+/*----------*/
+NoConcatenate
+Asesor:
+    LOAD Distinct
+        Id                                                      as SK.Persona,  
+        RolJefe                                                 as Asesor.RolJefe,
+        Rol                                                     as Asesor.Rol,
+        Jefe                                                    as Asesor.Jefe,   
+        Applymap('Map_Clave', IdJefe, Null())                   as Asesor.Clave,
+        replace(replace(NombreCompleto,chr(10),''),chr(13),'') 	as Asesor.NombreCompleto
+    Resident Asesor_Tmp2;
+    Drop Table Asesor_Tmp2;
+
+STORE Asesor INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Asesor.qvd];
+Drop Table Asesor;    

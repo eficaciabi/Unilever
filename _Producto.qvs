@@ -1,0 +1,41 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion Producto
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castaneda@eficacia.com.co
+Fecha           2023/05/03 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Proucto_Tmp1:
+    LOAD
+        PRODUCTO_ID     as ID_Producto,
+        MARCA           as Marca,
+        DESCRIPCION     as Descripcion,
+        CATEGORIA		as Categoria
+    FROM 
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/IPV_Producto.qvd]
+    (qvd);
+
+/**************** Transformación ****************/
+NoConcatenate
+Producto_Tmp2:
+    LOAD
+        ID_Producto,
+        Capitalize(Marca)           as Marca,
+        Capitalize(Descripcion)     as Descripcion,
+        Capitalize(Categoria)		as Categoria
+    Resident Proucto_Tmp1;
+    Drop Table Proucto_Tmp1;
+
+/*----------*/
+NoConcatenate
+Producto:
+    LOAD Distinct
+        ID_Producto         as SK.Producto,
+        Marca               as Producto.Marca,
+        Descripcion         as Producto.Descripcion,
+        Categoria			as Producto.Categoria
+    Resident Producto_Tmp2;
+    Drop Table Producto_Tmp2; 
+
+STORE Producto INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Producto.qvd];
+Drop Table Producto;  

@@ -1,0 +1,87 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Transformacion Actividades
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castaneda@eficacia.com.co
+Fecha           2023/05/03 (YYYY/MM/DD)
+Estado:         Activo
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Exhibiciones_Tmp1:
+	LOAD 
+		MARCA							as Marca,
+		SUBTIPO_ACTIVIDAD				as SubActividad,
+		ID_SUCURSAL						as IdPuntoVenta,
+		ID_USUARIO						as IdPersonal,
+		FECHA_VISITA					as _Fecha,
+		ID_REGISTRO						as IDRegistro
+	FROM 
+	[lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Actividades_$(Anno)$(Mes)*.qvd]
+	(qvd); 
+
+/********************************************************************************/
+/*							Comienzo Transformacion								*/	
+/********************************************************************************/
+NoConcatenate
+Exhibiciones_Tmp2:
+	LOAD 
+		Capitalize(Marca)										as Marca,
+		Capitalize(SubActividad)								as SubActividad,
+		IdPuntoVenta,
+		IdPersonal,
+		Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')   as Fecha,
+		IDRegistro
+	Resident Exhibiciones_Tmp1
+	Where 
+        Not WildMatch(IdPersonal, '39607','50501','84017');
+	Drop Table Exhibiciones_Tmp1;
+	
+/*---------*/
+NoConcatenate
+Exhibiciones_Tmp3:
+    Load
+        Year(Fecha)&Num(Month(Fecha), '00')&'-'&IdPersonal&'-'&Marca&'-'&SubActividad&'-'&IdPuntoVenta as Llave,
+        Max(IDRegistro) as IDRegistro
+    Resident Exhibiciones_Tmp2
+    Group By 
+        Year(Fecha)&Num(Month(Fecha), '00')&'-'&IdPersonal&'-'&Marca&'-'&SubActividad&'-'&IdPuntoVenta;
+
+Left Join (Exhibiciones_Tmp3)
+    Load
+        *
+    Resident Exhibiciones_Tmp2;
+    Drop Table Exhibiciones_Tmp2;
+    
+/*---------*/
+NoConcatenate
+Exhibiciones_Tmp4:
+    LOAD Distinct
+        SubActividad,
+        IdPuntoVenta,
+        IdPersonal,
+        Fecha,
+        Min(IDRegistro)         as IDRegistro,
+        Llave
+    Resident Exhibiciones_Tmp3
+    Group By
+        SubActividad,
+        IdPuntoVenta,
+        IdPersonal,
+        Fecha,
+        Llave;
+    DROP Table Exhibiciones_Tmp3;
+
+/*---------*/
+NoConcatenate
+Exhibiciones:
+    LOAD Distinct
+        IdPuntoVenta&'-'&IdPersonal&'-'&Fecha       as CK.Key1,
+        SubActividad								as Exhibiciones.SubActividad,
+        IdPuntoVenta								as Exhibiciones.IdPuntoVenta,
+        IdPersonal									as Exhibiciones.IdPersonal,
+        Fecha										as Exhibiciones.Fecha,
+        IDRegistro									as Exhibiciones.IDRegistro
+    Resident Exhibiciones_Tmp4;
+    DROP Table Exhibiciones_Tmp4;
+
+STORE Exhibiciones INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Exhibiciones_$(Anno)$(Mes).qvd];
+Drop Table Exhibiciones;   

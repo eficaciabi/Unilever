@@ -1,0 +1,52 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia: 		Eficacia S.A
+Proceso:		Conversor Unilever Sharepoint-QVD
+Desarrollador: 	William Alejandro Giraldo Zuluaga
+Fecha			2023/08/23 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+ExhNegociada_Tmp1:
+    LOAD 
+        [ID PERSONAL]    as IdPersonal,
+        FECHA            as _Fecha,
+        CANTIDAD         as Cantidad
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)\SGI\Colombia\UNILEVER_FS\Objetivo exhibiciones negociadas.xlsx]
+    (ooxml, embedded labels, table is [Hoja2]);
+    
+STORE ExhNegociada_Tmp1 INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_ExhNeg.qvd] (qvd);
+Drop Table ExhNegociada_Tmp1;
+
+ExhNegociadaGratis:
+    LOAD 
+        [ID PERSONAL], 
+        FECHA, 
+        CANTIDAD, 
+        D	
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI/Colombia\UNILEVER_FS\Objetivo exhibiciones gratis.xlsx]
+    (ooxml, embedded labels, table is Hoja2);
+
+STORE ExhNegociadaGratis INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_ExhNegociadaGratis.qvd] (qvd);
+Drop Table ExhNegociadaGratis;
+
+Foto:
+    LOAD 
+        [ID PRODUCTO],
+        [LINK]
+    FROM
+    [lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI/Colombia\UNILEVER_FS\LINKS.xlsx]
+    (ooxml, embedded labels, table is [Hoja1]);	
+    
+STORE Foto INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_Foto.qvd] (qvd);
+Drop Table Foto;
+
+Contraseña:
+LOAD 
+     [ID LIDER], 
+     CLAVE
+FROM
+[lib://COMP_SharePoint_Internal (eficacia_admin_analitica)/SGI/Colombia\UNILEVER_FS\Contraseña.xlsx]
+(ooxml, embedded labels, table is Hoja1);
+
+STORE Contraseña INTO [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Sh_Contraseña.qvd] (qvd);
+Drop Table Contraseña;

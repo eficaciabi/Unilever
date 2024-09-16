@@ -1,0 +1,120 @@
+﻿/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion LinkTable
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castanda@eficacia.com.co
+Fecha           2023/05/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+LinkTable_Tmp1:
+    LOAD DISTINCT
+        Momentos.Id_Sucursal        as LinkTable.IdPuntoVenta,
+        Momentos.Id_Usuario         as LinkTable.IdPersona,
+        Momentos.Fecha              as LinkTable.Fecha
+    FROM [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Momentos_$(Anno)$(Mes).qvd]
+    (qvd);
+
+Concatenate
+   LOAD DISTINCT
+        Cobertura.IdPuntoVenta      as LinkTable.IdPuntoVenta,
+        Cobertura.IdPersonal		as LinkTable.IdPersona,
+        Cobertura.Fecha				as LinkTable.Fecha
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Cobertura_$(Anno)$(Mes).qvd]
+    (qvd);  
+
+Concatenate
+   LOAD DISTINCT
+        Actividades.IdPuntoVenta    as LinkTable.IdPuntoVenta,
+        Actividades.IdPersonal		as LinkTable.IdPersona,
+        Actividades.Fecha			as LinkTable.Fecha
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Actividades_$(Anno)$(Mes).qvd]
+    (qvd);  
+
+Concatenate
+   LOAD DISTINCT
+        Exhibiciones.IdPuntoVenta   as LinkTable.IdPuntoVenta,
+        Exhibiciones.IdPersonal		as LinkTable.IdPersona,
+        Exhibiciones.Fecha			as LinkTable.Fecha
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Exhibiciones_$(Anno)$(Mes).qvd]
+    (qvd);  
+
+/*---------*/
+LinkTable_Tmp2:
+    LOAD DISTINCT
+        Precios.Id_Sucursal         as LinkTable.IdPuntoVenta,
+        Precios.Id_Usuario          as LinkTable.IdPersona,
+        Precios.Fecha               as LinkTable.Fecha,
+        Precios.Id_Producto         as LinkTable.IdProducto
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Precios_$(Anno)$(Mes).qvd]
+    (qvd);   
+
+Concatenate
+    LOAD DISTINCT 
+        Agotados.IdSucursal         as LinkTable.IdPuntoVenta,
+        Agotados.IdUsuario          as LinkTable.IdPersona,
+        Agotados.Fecha              as LinkTable.Fecha,
+        Agotados.IdProducto         as LinkTable.IdProducto
+    FROM 
+    [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Agotados_$(Anno)$(Mes).qvd]
+    (qvd); 
+    
+/*---------*/
+NoConcatenate
+LinkTable_Tmp:
+    Load Distinct
+        LinkTable.IdPuntoVenta,
+        LinkTable.IdPersona,
+        LinkTable.Fecha
+    Resident LinkTable_Tmp1; 
+    Drop Table LinkTable_Tmp1;
+
+Outer Join (LinkTable_Tmp)
+    LOAD Distinct
+        LinkTable.IdProducto,
+        LinkTable.IdPuntoVenta,
+        LinkTable.IdPersona,
+        LinkTable.Fecha    
+    Resident LinkTable_Tmp2;
+    Drop Table LinkTable_Tmp2;    
+
+/*---------*/
+NoConcatenate
+LinkTable:
+   LOAD Distinct
+        LinkTable.IdPuntoVenta&'-'&LinkTable.IdPersona&'-'&LinkTable.Fecha 		                        as CK.Key1,
+        LinkTable.IdPuntoVenta&'-'&LinkTable.IdPersona&'-'&LinkTable.IdProducto&'-'&LinkTable.Fecha     as CK.Key2,
+        LinkTable.IdPuntoVenta                                                                          as SK.PuntoVenta,
+        LinkTable.IdPersona                                                                             as SK.Persona,
+        LinkTable.IdProducto												                            as SK.Producto,
+        LinkTable.Fecha                                                                                 as SK.Fecha
+    Resident LinkTable_Tmp; 
+
+STORE LinkTable INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_LinkTable_$(Anno)$(Mes).qvd];
+Drop Table LinkTable;
+
+/*---------*/
+Calendario_Tmp:
+    LOAD DISTINCT
+        LinkTable.Fecha                         as Fecha
+    Resident LinkTable_Tmp; 
+    Drop Table LinkTable_Tmp;
+    
+/*---------*/
+NoConcatenate
+Calendario:
+    LOAD
+        Fecha                                   as SK.Fecha,
+        Fecha                                   as Calendario.Fecha,       
+        Year(Fecha)&'-'&Num(Month(Fecha),'00')  as Calendario.Periodo,
+        Day(Fecha)                              as Calendario.Dia,
+        Capitalize(Date(Fecha, 'MMMM'))         as Calendario.Mes,
+        Num(Month(Fecha),'00')                  as Calendario.MesNum, 
+        Year(Fecha)                             as Calendario.Año
+    Resident Calendario_Tmp;
+    Drop Table Calendario_Tmp;
+
+Store Calendario into [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Calendario_$(Anno)$(Mes).qvd] (qvd);
+Drop Table Calendario;

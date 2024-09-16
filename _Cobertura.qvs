@@ -1,0 +1,227 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion Cobertura
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castanda@eficacia.com.co
+Fecha           2023/05/02 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Rutero_Tmp1:
+	LOAD 
+		ID_PUNTO_VENTA,
+		FECHA_DE_EJECUCION,
+		ID_PERSONAL,
+		ESTADO,
+		SEMI_CERRADO,
+		MINUTOS
+	FROM
+	[lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\UNILEVER\Rutero_$(Anno)$(Mes).qvd]
+	(qvd);
+
+/*---------*/
+Visitas_Tmp1:
+	LOAD 
+		ID_PV, 
+		FECHA_INICIAL_FILTRO,
+		ID_ASESOR,
+		ESTADO
+	FROM
+	[lib://COMP_Stage (eficacia_admin_analitica)\SGI\Colombia\UNILEVER\EfectividadVisitas_$(Anno)$(Mes)*.qvd]
+	(qvd);
+
+/**************** Transformación ****************/
+NoConcatenate
+/* +++ Ruteros +++ */
+Rutero_Tmp2:
+	LOAD
+		ID_PUNTO_VENTA						    as IdPuntoVenta,
+		Date(FECHA_DE_EJECUCION,'YYYY/MM/DD')	as Fecha,
+		ID_PERSONAL							    as IdPersonal
+	Resident Rutero_Tmp1
+	Where 
+		ESTADO = 1
+	and MINUTOS = 1
+    and SEMI_CERRADO = 1;
+	DROP Table Rutero_Tmp1;
+
+/*---------*/
+NoConcatenate
+/* +++ Visitas +++ */
+Visitas_Tmp2:
+	LOAD 
+		ID_PV																							as IdPuntoVenta, 
+		DATE(DATE#(LEFT(DATE(FECHA_INICIAL_FILTRO ,'YYYY/MM/DD'), 10), 'YYYY/MM/DD'), 'YYYY/MM/DD')	    as Fecha,
+		ID_ASESOR																						as IdPersonal,
+		Capitalize(ESTADO)																				as Estado 
+	Resident Visitas_Tmp1
+	where 
+		Not WildMatch(ID_ASESOR, '39607','50501','84017');
+	DROP Table Visitas_Tmp1;
+
+/*---------*/
+NoConcatenate
+/* +++ Cumplimiento de Rutero +++ */
+CumpleVisita_Tmp1:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		'Cumple Visita' 							as Concepto					
+	Resident Rutero_Tmp2;	
+
+Inner Join 
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		'Cumple Visita' 							as Concepto
+	Resident Visitas_Tmp2;
+
+/*---------*/
+NoConcatenate
+/* +++ Visita No Programada(Extra-Ruta) +++ */
+Rutero_Tmp:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.KeyRutero					
+	Resident Rutero_Tmp2;
+
+NoConcatenate
+ExtraRuta_Tmp1:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		'Extra Ruta' 								as Concepto
+	Resident Visitas_Tmp2
+	Where 
+		Not Exists(Ck.KeyRutero,IdPuntoVenta&IdPersonal&Fecha);
+	DROP Table Rutero_Tmp;
+
+/*---------*/
+NoConcatenate
+/* +++ Proximo a Visitar +++ */
+PlaneadosVisitar_Tmp:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		'Visitas Planeadas' 						as Concepto
+	Resident Rutero_Tmp2
+	Where 
+		Fecha >= Date(Today(),'YYYY/MM/DD');
+
+/*---------*/
+NoConcatenate
+/* +++ Visitas Incumplidas a hoy +++ */
+RuteroVencido_Tmp1:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha 
+	Resident Rutero_Tmp2
+	Where 
+		Fecha <= Date(Today(),'YYYY/MM/DD');
+	DROP Table Rutero_Tmp2;
+
+NoConcatenate
+Visitas_Tmp:
+	LOAD
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Visitas
+	Resident Visitas_Tmp2;
+
+NoConcatenate
+RuteroVencido_Tmp2:
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		'Visitas No ejecutadas' 					as Concepto
+	Resident RuteroVencido_Tmp1
+	Where 
+		Not Exists(Ck.Visitas,Ck.Key) and Fecha < Today();
+	DROP Table RuteroVencido_Tmp1;
+	DROP Table Visitas_Tmp;
+
+/*---------*/
+NoConcatenate
+/* +++ Cobertura +++ */
+Cobertura_Tmp1:
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		Concepto
+	Resident CumpleVisita_Tmp1;
+	DROP Table CumpleVisita_Tmp1;
+
+Concatenate
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		Concepto
+	Resident ExtraRuta_Tmp1;
+	DROP Table ExtraRuta_Tmp1;	
+
+Concatenate 
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		Concepto
+	Resident PlaneadosVisitar_Tmp;
+	DROP Table PlaneadosVisitar_Tmp;		
+   
+Concatenate
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		Concepto
+	Resident RuteroVencido_Tmp2;
+	DROP Table RuteroVencido_Tmp2;
+
+/*---------*/
+NoConcatenate
+Cobertura_Tmp2:
+	LOAD
+		Ck.Key,
+		IdPuntoVenta,
+		IdPersonal,
+		Fecha,
+		Concepto
+	Resident Cobertura_Tmp1;
+	DROP Table Cobertura_Tmp1;
+
+Left Join(Cobertura_Tmp2)
+	LOAD 
+		IdPuntoVenta&IdPersonal&Fecha 				as Ck.Key,
+		Estado
+	Resident Visitas_Tmp2;
+	DROP Table Visitas_Tmp2;
+
+/*---------*/
+NoConcatenate
+Cobertura:
+	LOAD Distinct
+		IdPuntoVenta&'-'&IdPersonal&'-'&Fecha	as CK.Key1,
+		Fecha									as Cobertura.Fecha,
+		IdPuntoVenta&'-'&IdPersonal&'-'&Fecha	as Cobertura.Registros,
+		IdPuntoVenta							as Cobertura.IdPuntoVenta,
+		IdPersonal								as Cobertura.IdPersonal,
+		Estado									as Cobertura.Estado,
+		Concepto								as Cobertura.Concepto
+	Resident Cobertura_Tmp2;
+	DROP Table Cobertura_Tmp2;
+
+STORE Cobertura INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Cobertura_$(Anno)$(Mes).qvd];
+Drop Table Cobertura;    

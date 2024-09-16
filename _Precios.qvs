@@ -1,0 +1,51 @@
+/*-----------------------------------------------------------------------------------------------------------------------------------------------
+Compañia:       Eficacia S.A 
+Proceso:        Transformacion Precios
+Desarrollador:  Natalia Castañeda Colonia
+Email:          natalia_castaneda@eficacia.com.co
+Fecha           2023/05/03 (YYYY/MM/DD)
+-----------------------------------------------------------------------------------------------------------------------------------------------*/
+Precios_Tmp1:
+	LOAD
+		ID_SUCURSAL       as Id_Sucursal,
+        PRECIO            as Valor,
+        ID_SUPERVISOR     as Id_Usuario,
+        FECHA_INICIAL     as _Fecha,
+        ID_PRODUCTO       as Id_Producto
+	FROM
+    [lib://COMP_Stage (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/Precios_$(Anno)$(Mes)*.qvd]
+	(qvd);
+	
+/*---------*/
+NoConcatenate
+Precios_Tmp2:
+	LOAD
+		Id_Sucursal,
+        Id_Usuario,
+        Valor,
+        Date(left(date(_Fecha,'DD/MM/YYYY'),10),'YYYY/MM/DD')	as Fecha,
+        Id_Producto,
+        ApplyMap('Map_Foto',Id_Producto,Null())                 as Foto
+	Resident Precios_Tmp1
+    Where
+        NOT WildMatch(Valor, 'Agotado', 'No Manejante', 'NP')
+    and Valor > 0
+    and Not WildMatch(Id_Usuario, '39607','50501','84017');
+    Drop Table Precios_Tmp1;
+    
+/*--------------*/
+NoConcatenate
+Precios:
+	LOAD distinct
+		Id_Sucursal&'-'&Id_Usuario&'-'&Id_Producto&'-'&Fecha    as CK.Key2,
+ 		Id_Producto												as Precios.Id_Producto,
+		Id_Sucursal												as Precios.Id_Sucursal,
+        Id_Usuario												as Precios.Id_Usuario,
+        Fecha													as Precios.Fecha,
+        Valor                                                   as Precios.Valor,
+        Foto                                                    as Precios.Foto
+     Resident Precios_Tmp2;
+    Drop Table Precios_Tmp2;     
+
+STORE Precios INTO [lib://COMP_DataMart (eficacia_admin_analitica)/SGI/Colombia/UNILEVER/_Precios_$(Anno)$(Mes).qvd];
+Drop Table Precios;       
